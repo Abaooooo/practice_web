@@ -3,57 +3,35 @@
     <div class="header"><a href="/home">主页</a> >> 会员注册</div>
     <div class="main">
       <div>
-        <h4>会员登录</h4>
-        <div class="desc">如果您有一个账户,请使用您的电子邮件地址登录</div>
-        <template v-if="type == 1">
-          <label for="account">邮箱 / 手机号 / 小米ID</label>
-          <div class="inputBox">
-            <input type="text" class="account" v-model="account" />
-          </div>
-          <label for="password">密码</label>
-          <div class="inputBox">
-            <input type="text" class="password" v-model="password" />
-          </div>
-        </template>
-        <template v-else>
-          <label for="account">手机号码 </label>
-          <div class="inputBox">
-            <input type="tel" class="account" v-model="account" />
-          </div>
-          <label for="password">短信验证码</label>
-          <div class="inputBox">
-            <input type="password" class="password" v-model="password" />
-          </div>
-        </template>
+        <h4>会员注册</h4>
+        <label for="name">用户名</label>
+        <div class="inputBox">
+          <input type="text" name="name" v-model="name" />
+        </div>
+        <label for="phone">手机号码 </label>
+        <div class="inputBox">
+          <input type="tel" name="phone" v-model="phone" />
+        </div>
+        <label for="code">短信验证码</label>
+        <div class="inputBox">
+          <input type="text" name="code" v-model="code" />
+          <a @click="getCode" :class="isRun ? 'noClick' : ''">{{
+            isRun ? `重新发送(${runtime})` : "获取验证码"
+          }}</a>
+        </div>
+        <label for="password">密码</label>
+        <div class="inputBox">
+          <input type="password" name="password" v-model="password" />
+        </div>
+        <label for="passwordPay">支付密码</label>
+        <div class="inputBox">
+          <input type="password" name="passwordPay" v-model="passwordPay" />
+        </div>
         <div class="btn">
-          <button class="submit" @click="toLogin">
-            {{ type == 1 ? "登录" : "立即登录/注册" }}
-          </button>
+          <button class="submit" @click="toRegist">立即注册</button>
           <span class="handle">
-            <a @click="changeType">{{
-              type == 1 ? "手机短信登录 / 注册" : "用户名密码登录"
-            }}</a>
-            |
-            <a href="/regist" v-if="type == 1">立即注册</a>
-            <a href="" v-else>获取验证码</a>
-            |
-            <a href="" v-if="type == 1">忘记密码</a>
-            <a href="" v-else>收不到验证码</a>
+            <a href="/login">已有账号，去注册</a>
           </span>
-        </div>
-      </div>
-      <div class="regist">
-        <div>
-          <h4>注册会员</h4>
-          <div class="desc">如果没有账户,请点击创建,成为本网站的会员</div>
-          <button class="submit">创建账户</button>
-        </div>
-        <div>
-          <h4>非牟利机构注册会员</h4>
-          <div class="desc">
-            成为本网站非牟利机构会员,每月可免费领取一定数量的口罩
-          </div>
-          <button class="submit">创建账户</button>
         </div>
       </div>
     </div>
@@ -69,23 +47,96 @@
 </template>
 
 <script>
+import { getCode, checkCode, checkPhone, register } from "@/api/api";
+import encode from "@/util/encode";
 export default {
   name: "homePage",
   data() {
     return {
-      type: 1,
-      account: "",
+      name: "",
+      phone: "",
+      code: "",
       password: "",
+      passwordPay: "",
+      isRun: false,
+      runtime: 30,
+      timer: null,
     };
   },
   methods: {
-    changeType() {
-      this.type = this.type == 1 ? 2 : 1;
-      this.account = this.password = "";
+    async getCode() {
+      if (this.isRun) return;
+      if (!this.phone) {
+        this.$alert("手机号不能为空", "温馨提示", {
+          confirmButtonText: "确定",
+        });
+        return;
+      }
+      let time = +new Date(await getCode(this.phone)) + 30000;
+      this.isRun = true;
+      this.timer = setInterval(() => {
+        let current = +new Date(),
+          running = time - current;
+        if (running > 0) {
+          this.runtime--;
+        } else {
+          this.isRun = false;
+          this.runtime = 30;
+          clearInterval(this.timer);
+          this.timer = null;
+          return;
+        }
+      }, 1000);
     },
-    toLogin() {
-      if (!this.account || !this.password) {
-        this.$alert("所有项不能为空", "温馨提示", {
+    async toRegist() {
+      if (
+        !this.name ||
+        !this.phone ||
+        !this.code ||
+        !this.password ||
+        !this.passwordPay
+      ) {
+        this.$alert("所有项必填哦", "温馨提示", {
+          confirmButtonText: "确定",
+        });
+        return;
+      }
+      let resCode = await checkCode({ phone: this.phone, code: this.code });
+      if (resCode.code != 0) {
+        this.$alert("验证码有误", "温馨提示", {
+          confirmButtonText: "确定",
+        });
+        return;
+      }
+      let resPhone = await checkPhone(this.phone);
+      if (resPhone.code == 0) {
+        this.$confirm("当前手机号已被注册，是否直接登录", "温馨提示", {
+          distinguishCancelAndClose: true,
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+        })
+          .then(() => {
+            this.$router.push("/login");
+          })
+          .catch(() => {});
+        return;
+      }
+      this.password = encode(this.password);
+      let resRegist = await register({
+        name: this.name,
+        phone: this.phone,
+        password: this.password,
+        passwordPay: this.passwordPay,
+      });
+      if (resRegist.code == 0) {
+        this.$alert("注册成功，即将跳转到登录页", "温馨提示", {
+          confirmButtonText: "确定",
+          callback: () => {
+            this.$router.replace("/login");
+          },
+        });
+      } else {
+        this.$alert("网络繁忙", "温馨提示", {
           confirmButtonText: "确定",
         });
       }

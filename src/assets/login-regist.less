@@ -28,19 +28,30 @@
     }
     label,
     .inputBox {
-      display: block;
       width: 100%;
       height: 40px;
     }
     label {
+      display: block;
+      margin-top: 30px;
+      padding-left: 10px;
       text-align: left;
       color: #333333;
       font-size: 16px;
-      margin-top: 30px;
-      padding-left: 10px;
     }
     .inputBox {
+      position: relative;
       border: 1px solid #ccc;
+      a {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: @C1;
+      }
+      a.noClick {
+        color: #dddddd;
+      }
     }
     input {
       width: 100%;

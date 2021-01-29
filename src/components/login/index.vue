@@ -22,20 +22,22 @@
           </div>
           <label for="password">短信验证码</label>
           <div class="inputBox">
-            <input type="password" class="password" v-model="password" />
+            <input type="text" class="password" v-model="password" />
+            <a @click="sendCode" :class="isRun ? 'noClick' : ''">{{
+              isRun ? `重新发送(${runtime})` : "获取验证码"
+            }}</a>
           </div>
         </template>
         <div class="btn">
           <button class="submit" @click="toLogin">
-            {{ type == 1 ? "登录" : "立即登录/注册" }}
+            {{ type == 1 ? "登录" : "立即登录" }}
           </button>
           <span class="handle">
             <a @click="changeType">{{
-              type == 1 ? "手机短信登录 / 注册" : "用户名密码登录"
+              type == 1 ? "手机短信登录" : "用户名密码登录"
             }}</a>
             |
-            <a href="/regist" v-if="type == 1">立即注册</a>
-            <a v-else @click="getCode">获取验证码</a>
+            <a href="/regist">立即注册</a>
             |
             <a href="" v-if="type == 1">忘记密码</a>
             <a href="" v-else>收不到验证码</a>
@@ -69,7 +71,8 @@
 </template>
 
 <script>
-import { getCode } from "../../api/api";
+import { getCode, checkCode, checkPhone, login } from "../../api/api";
+import encode from "@/util/encode";
 export default {
   name: "loginPage",
   data() {
@@ -77,6 +80,9 @@ export default {
       type: 2,
       account: "",
       password: "",
+      isRun: false,
+      runtime: 30,
+      timer: null,
     };
   },
   methods: {
@@ -84,22 +90,82 @@ export default {
       this.type = this.type == 1 ? 2 : 1;
       this.account = this.password = "";
     },
-    async getCode() {
+    sendCode() {
+      if (this.isRun) return;
       if (!this.account) {
         this.$alert("手机号不能为空", "温馨提示", {
           confirmButtonText: "确定",
         });
         return;
       }
-      let res = await getCode(this.account);
-      console.log(res);
+      let time = +new Date(getCode(this.account)) + 30000;
+      this.isRun = true;
+      this.timer = setInterval(() => {
+        let current = +new Date(),
+          running = time - current;
+        if (running > 0) {
+          this.runtime--;
+        } else {
+          this.isRun = false;
+          this.runtime = 30;
+          clearInterval(this.timer);
+          this.timer = null;
+          return;
+        }
+      }, 1000);
     },
-    toLogin() {
+    async toLogin() {
+      // check null
       if (!this.account || !this.password) {
         this.$alert("所有项不能为空", "温馨提示", {
           confirmButtonText: "确定",
         });
+        return;
       }
+      // check phone 12312312311
+      let resPhone = await checkPhone(this.account);
+      if (resPhone.code != 0) {
+        this.$confirm("当前手机号未注册，是否前往注册", "温馨提示", {
+          distinguishCancelAndClose: true,
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+        })
+          .then(() => {
+            this.$router.push("/regist");
+          })
+          .catch(() => {});
+        return;
+      }
+      // check code
+      if (this.type == 2) {
+        let resCode = await checkCode({
+          phone: this.account,
+          code: this.password,
+        });
+        if (resCode.code != 0) {
+          this.$alert("验证码有误", "温馨提示", {
+            confirmButtonText: "确定",
+          });
+          return;
+        }
+      }
+      // check login
+      if (this.type == 1) this.password = encode(this.password);
+      let resLogin = await login({
+        account: this.account,
+        password: this.password,
+        type: this.type,
+      });
+      if (resLogin.code != 0) {
+        this.$alert("信息有误，请重新确认哦", "温馨提示", {
+          confirmButtonText: "确定",
+        });
+        return;
+      }
+      let userInfo = { time: +new Date(), data: resLogin.data };
+      localStorage.setItem("userInfo", JSON.stringify(userInfo));
+      this.$store.commit("updateUserInfo", userInfo);
+      this.$router.replace("/home");
     },
   },
 };
