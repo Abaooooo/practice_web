@@ -3,9 +3,13 @@ import Vuex from "vuex";
 
 Vue.use(Vuex);
 
+let userInfo = JSON.parse(localStorage.getItem("userInfo")) || {};
+if (+new Date().getTime() - userInfo.time > 1800000) {
+  userInfo = userInfo.data;
+}
 export default new Vuex.Store({
   state: {
-    userInfo: {},
+    userInfo,
   },
   mutations: {
     updateUserInfo(state, value) {

@@ -26,3 +26,7 @@ export function register({ name, phone, passord, passordPay }) {
 export function login({ account, password, type }) {
   return http.post("/user/login", { account, password, type });
 }
+
+export function signout() {
+  return http.get("/user/signout");
+}

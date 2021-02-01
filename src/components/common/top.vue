@@ -6,17 +6,50 @@
         <span>English</span>
       </div>
       <div class="user">
-        <span>user <i class="iconfont icon-user"></i></span>|
-        <span>购物车 <i class="iconfont icon-cart"></i></span>
+        <a @click="signInOrOut"
+          >{{ userInfo.name || "user" }} <i class="iconfont icon-user"></i></a
+        >|
+        <a>购物车 <i class="iconfont icon-cart"></i></a>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import { signout } from "@/api/api";
 export default {
-  created() {
-    
+  data() {
+    return {};
+  },
+  methods: {
+    signInOrOut(e) {
+      if (e.target.textContent === "user") {
+        this.$router.push("/login");
+        return;
+      }
+      this.$confirm("是否确定退出登录", "温馨提示", {
+        distinguishCancelAndClose: true,
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+      })
+        .then(async () => {
+          let resSignout = await signout();
+          if (resSignout.code == 0) {
+            localStorage.removeItem("userInfo");
+            this.$router.replace("/home");
+          } else {
+            this.$alert("网络繁忙", "温馨提示", {
+              confirmButtonText: "确定",
+            });
+          }
+        })
+        .catch(() => {});
+    },
+  },
+  computed: {
+    userInfo() {
+      return this.$store.state.userInfo;
+    },
   },
 };
 </script>
@@ -39,7 +72,7 @@ export default {
     }
     .user {
       float: right;
-      span {
+      a {
         margin: 0 10px;
       }
     }

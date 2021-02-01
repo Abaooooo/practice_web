@@ -9,6 +9,7 @@ function encode(str) {
       temp.push(model[index] + item.toLocalUpperCase());
     }
   });
+  console.log(temp.reverse().join(""));
   return temp.reverse().join("");
 }
 
